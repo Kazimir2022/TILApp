@@ -10,5 +10,15 @@ func routes(_ app: Application) throws {
         "Hello, world!"
     }
 
+ // 1
+  app.post("api", "acronyms") { req -> EventLoopFuture<Acronym> in
+    // 2
+    let acronym = try req.content.decode(Acronym.self)
+    // 3
+    return acronym.save(on: req.db).map {
+      // 4
+      acronym
+    }
+  }
     
 }
