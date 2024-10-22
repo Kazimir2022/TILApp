@@ -9,9 +9,12 @@ import Vapor
 import Fluent
 
 struct AcronymsController: RouteCollection {
-  func boot(routes: RoutesBuilder) throws {
+  func boot(routes: RoutesBuilder) throws {//регистрация маршрутов
+     
+    
+    routes.get("api", "acronyms", use: getAllHandler)
   }
-    //routes.get("api", "acronyms", use: getAllHandler)
+   
 
   @Sendable func getAllHandler(_ req: Request)
             -> EventLoopFuture<[Acronym]> {

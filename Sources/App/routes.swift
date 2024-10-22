@@ -22,9 +22,10 @@ func routes(_ app: Application) throws {
   }
   
   // 1 Зарегистрируйте новый обработчик маршрута, который принимает GET-запрос, который возвращает EventLoopFuture<[Acronym]>, будущий массив Acronyms.
+  /*
   let controller = AcronymsController()
   app.get("api", "acronyms", use: controller.getAllHandler)
-  
+  */
   // 1
   app.get("api", "acronyms", ":acronymID") {
     req -> EventLoopFuture<Acronym> in
@@ -56,7 +57,7 @@ func routes(_ app: Application) throws {
   }
   
   
-  
+  /*
   app.put("api", "myApi") { req -> EventLoopFuture<Acronym> in
     
     let updateAcronym = try req.content.decode(Acronym.self)//получаем модель из запроса при помощи декодирования
@@ -67,10 +68,8 @@ func routes(_ app: Application) throws {
       return acr.save(on: req.db).map { acr
       }
     }
-    
-    
   }
-  
+  */
   // 1
   app.delete("api", "acronyms", ":acronymID") {
     req -> EventLoopFuture<HTTPStatus> in
