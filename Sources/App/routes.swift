@@ -22,13 +22,8 @@ func routes(_ app: Application) throws {
   }
   
   // 1 Зарегистрируйте новый обработчик маршрута, который принимает GET-запрос, который возвращает EventLoopFuture<[Acronym]>, будущий массив Acronyms.
-  app.get("api", "acronyms") {
-    req -> EventLoopFuture<[Acronym]> in
-    // 2 Выполните запрос, чтобы получить все аббревиатуры.
-    Acronym.query(on: req.db).all()//Fluent добавляет функции в модели, чтобы иметь возможность выполнять запросы на них. Вы должны предоставить запросу базу данных. Это почти всегда база данных из запроса и обеспечивает соединение для запроса. all() возвращает все модели этого типа в базе данных. Это эквивалентно SQL-запросу SELECT * FROM Acronyms;.
-    
-    
-  }
+  let controller = AcronymsController()
+  app.get("api", "acronyms", use: controller.getAllHandler)
   
   // 1
   app.get("api", "acronyms", ":acronymID") {
@@ -134,6 +129,11 @@ func routes(_ app: Application) throws {
       .all()
   }
   
-  
+  // 1
+  let acronymsController = AcronymsController()
+  // 2
+  try app.register(collection: acronymsController)
+
+
   
 }
