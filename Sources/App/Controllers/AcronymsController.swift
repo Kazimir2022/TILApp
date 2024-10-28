@@ -35,10 +35,16 @@ struct AcronymsController: RouteCollection {
   -> EventLoopFuture<[Acronym]> {
     Acronym.query(on: req.db).all()
   }
-  
+  //Сохранение в БД
   @Sendable func createHandler(_ req: Request) throws
   -> EventLoopFuture<Acronym> {
-    let acronym = try req.content.decode(Acronym.self)
+    // 1
+    let data = try req.content.decode(CreateAcronymData.self)
+    // 2
+    let acronym = Acronym(
+      short: data.short,
+      long: data.long,
+      userID: data.userID)
     return acronym.save(on: req.db).map { acronym }
   }
   
@@ -96,4 +102,10 @@ struct AcronymsController: RouteCollection {
     return Acronym.query(on: req.db)
       .sort(\.$short, .ascending).all()
   }
+}
+
+struct CreateAcronymData: Content {
+  let short: String
+  let long: String
+  let userID: UUID
 }

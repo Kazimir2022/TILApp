@@ -18,14 +18,14 @@ public func configure(_ app: Application) async throws {
      ), as: .psql)
 
   
-   // 1
+   // 1 Добаляем ноаую модель к миграции
   app.migrations.add(CreateAcronym())
-    
+  app.migrations.add(CreateUser())
   // 2
   app.logger.logLevel = .debug
 
   // 3
-  try app.autoMigrate().wait()
+  try await app.autoMigrate().get()
     
     // register routes
     try routes(app)

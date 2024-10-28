@@ -15,9 +15,10 @@ struct CreateAcronym: Migration {
     database.schema("acronyms")
       // 4
       .id()
-      // 5
+      // 5 Свойство добавили- добавляем столбец в БД
       .field("short", .string, .required)
       .field("long", .string, .required)
+      .field("userID", .uuid, .required)
       // 6
       .create()
   }
@@ -27,3 +28,4 @@ struct CreateAcronym: Migration {
     database.schema("acronyms").delete()
   }
 }
+
