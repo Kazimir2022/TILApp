@@ -28,6 +28,8 @@ struct AcronymsController: RouteCollection {
     acronymsRoutes.get("first", use: getFirstHandler)
     // 7
     acronymsRoutes.get("sorted", use: sortedHandler)
+    
+    acronymsRoutes.get(":acronymID", "user", use: getUserHandler)
   }
   
   
@@ -109,6 +111,18 @@ struct AcronymsController: RouteCollection {
   -> EventLoopFuture<[Acronym]> {
     return Acronym.query(on: req.db)
       .sort(\.$short, .ascending).all()
+  }
+  // 1 Через модель Acronym получаем связанную запись User(получаем родителя)
+  @Sendable  func getUserHandler(_ req: Request)
+  -> EventLoopFuture<User> {
+    //Возвращаем модель User а не Acronym
+    // 2
+    Acronym.find(req.parameters.get("acronymID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
+      .flatMap { acronym in
+        // 3  получаем
+        acronym.$user.get(on: req.db)
+      }
   }
 }
 
