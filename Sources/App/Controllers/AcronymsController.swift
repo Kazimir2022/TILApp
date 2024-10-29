@@ -30,6 +30,7 @@ struct AcronymsController: RouteCollection {
     acronymsRoutes.get("sorted", use: sortedHandler)
     
     acronymsRoutes.get(":acronymID", "user", use: getUserHandler)
+    
   }
   
   

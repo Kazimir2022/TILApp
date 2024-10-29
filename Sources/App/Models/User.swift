@@ -19,7 +19,9 @@ final class User: Model, Content {
    
   @Field(key: "username")
   var username: String
-    
+  
+  @Children(for: \.$user)//указываем имя родительского свойства
+  var acronyms: [Acronym]
   init() {}
     
   init(id: UUID? = nil, name: String, username: String) {

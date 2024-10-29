@@ -19,7 +19,13 @@ struct UsersController: RouteCollection {
      // 1
     usersRoute.get(use: getAllHandler)
     // 2
-    usersRoute.get(":userID", use: getHandler) 
+    usersRoute.get(":userID", use: getHandler)
+    
+   usersRoute.get(
+      ":userID",
+      "acronyms",
+      use: getAcronymsHandler)
+    
   }
 
   // 5
@@ -46,9 +52,15 @@ struct UsersController: RouteCollection {
         .unwrap(or: Abort(.notFound))
   }
   
-  
-  
-  
-  
-  
+  // 1 получаем массив абревиатур(массив детей)
+  @Sendable func getAcronymsHandler(_ req: Request)
+  -> EventLoopFuture<[Acronym]> {
+    // 2 поиск записи в БД по id
+    User.find(req.parameters.get("userID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
+      .flatMap { user in
+        // 3 получаем из модели user запись 
+        user.$acronyms.get(on: req.db)
+      }
+  }
 }
