@@ -14,7 +14,7 @@ struct AcronymsController: RouteCollection {
     
     //routes.get("api", "acronyms", use: getAllHandler)
     acronymsRoutes.get(use: getAllHandler)
-    // 1
+    // 1 Сохранение в БД
     acronymsRoutes.post(use: createHandler)
     // 2
     acronymsRoutes.get(":acronymID", use: getHandler)
@@ -38,14 +38,20 @@ struct AcronymsController: RouteCollection {
   //Сохранение в БД
   @Sendable func createHandler(_ req: Request) throws
   -> EventLoopFuture<Acronym> {
-    // 1
-    let data = try req.content.decode(CreateAcronymData.self)
-    // 2
+    // 1 извлекаем из запроса модель нового типа - CreateAcronymData.self
+    let data = try req.content.decode(CreateAcronymData.self)//извлекаем из запроса модель
+    // 2 Создаем объект сохраняем его в заранее подготовленной для этого БД
     let acronym = Acronym(
       short: data.short,
       long: data.long,
       userID: data.userID)
     return acronym.save(on: req.db).map { acronym }
+    
+    /*
+     
+     let acronym = try req.content.decode(Acronym.self)
+     return acronym.save(on: req.db).map { acronym }
+     */
   }
   
   @Sendable func getHandler(_ req: Request)
@@ -56,17 +62,19 @@ struct AcronymsController: RouteCollection {
   
   @Sendable func updateHandler(_ req: Request) throws
   -> EventLoopFuture<Acronym> {
-    let updatedAcronym = try req.content.decode(Acronym.self)
-    return Acronym.find(
-      req.parameters.get("acronymID"),
-      on: req.db)
-    .unwrap(or: Abort(.notFound)).flatMap { acronym in
-      acronym.short = updatedAcronym.short
-      acronym.long = updatedAcronym.long
-      return acronym.save(on: req.db).map {
-        acronym
+    let updateData =
+    try req.content.decode(CreateAcronymData.self)
+    return Acronym
+      .find(req.parameters.get("acronymID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
+      .flatMap { acronym in
+        acronym.short = updateData.short
+        acronym.long = updateData.long
+        acronym.$user.id = updateData.userID
+        return acronym.save(on: req.db).map {
+          acronym
+        }
       }
-    }
   }
   
   @Sendable func deleteHandler(_ req: Request)
