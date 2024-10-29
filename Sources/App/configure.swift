@@ -19,8 +19,8 @@ public func configure(_ app: Application) async throws {
 
   
    // 1 Добаляем ноаую модель к миграции
-  app.migrations.add(CreateAcronym())
   app.migrations.add(CreateUser())
+  app.migrations.add(CreateAcronym())
   // 2
   app.logger.logLevel = .debug
 

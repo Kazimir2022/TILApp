@@ -59,7 +59,7 @@ struct UsersController: RouteCollection {
     User.find(req.parameters.get("userID"), on: req.db)
       .unwrap(or: Abort(.notFound))
       .flatMap { user in
-        // 3 получаем из модели user запись 
+        // 3 получаем из модели user запись
         user.$acronyms.get(on: req.db)
       }
   }

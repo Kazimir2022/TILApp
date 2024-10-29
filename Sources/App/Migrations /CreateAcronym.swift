@@ -18,7 +18,8 @@ struct CreateAcronym: Migration {
       // 5 Свойство добавили- добавляем столбец в БД
       .field("short", .string, .required)
       .field("long", .string, .required)
-      .field("userID", .uuid, .required)
+      // .field("userID", .uuid, .required)
+      .field("userID", .uuid, .required, .references("users", "id"))
       // 6
       .create()
   }
