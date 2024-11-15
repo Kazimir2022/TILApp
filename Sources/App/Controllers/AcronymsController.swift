@@ -164,7 +164,7 @@ struct AcronymsController: RouteCollection {
     Acronym.find(req.parameters.get("acronymID"), on: req.db)
       .unwrap(or: Abort(.notFound))
       .flatMap { acronym in
-        // 3
+        // 3 используйте запрос Fluent, чтобы вернуть все категории.
         acronym.$categories.query(on: req.db).all()
       }
   }

@@ -17,6 +17,10 @@ struct CategoriesController: RouteCollection {
     categoriesRoute.post(use: createHandler)
     categoriesRoute.get(use: getAllHandler)
     categoriesRoute.get(":categoryID", use: getHandler)
+    categoriesRoute.get(
+      ":categoryID",
+      "acronyms",
+      use: getAcronymsHandler)
   }
   
   // 5 Сохранение в БД
@@ -40,5 +44,17 @@ struct CategoriesController: RouteCollection {
     // 10
     Category.find(req.parameters.get("categoryID"), on: req.db)
       .unwrap(or: Abort(.notFound))
+  }
+  
+ // 1
+  @Sendable func getAcronymsHandler(_ req: Request)
+    -> EventLoopFuture<[Acronym]> {
+    // 2
+    Category.find(req.parameters.get("categoryID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
+      .flatMap { category in
+        // 3  Fluent не импортировали поэтому исп get. This is the same as query(on: req.db).all() from earlier.
+        category.$acronyms.get(on: req.db)
+      }
   }
 }
