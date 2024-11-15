@@ -26,6 +26,12 @@ final class Acronym: Model {
     //ссылка на user. Абревиатура является дочерью. @Parent также позволяет создавать аббревиатуру, используя только идентификатор пользователя, без необходимости в полном объекте пользователя. Это помогает избежать дополнительных запросов к базе данных.
   @Parent(key: "userID")// ключ - придумываем любой.
   var user: User
+    //братская ссылка
+ @Siblings(
+    through: AcronymCategoryPivot.self,
+    from: \.$acronym,
+    to: \.$category)
+  var categories: [Category] 
    
   // 5
   init() {}
