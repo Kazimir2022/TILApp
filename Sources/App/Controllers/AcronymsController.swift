@@ -42,7 +42,15 @@ struct AcronymsController: RouteCollection {
       "categories",
       use: getCategoriesHandler)
     
+     acronymsRoutes.delete(
+      ":acronymID",
+      "categories",
+      ":categoryID",
+      use: removeCategoriesHandler)
+    
   }
+  
+  
   
   
   @Sendable func getAllHandler(_ req: Request)
@@ -169,7 +177,26 @@ struct AcronymsController: RouteCollection {
       }
   }
   
-  
+  // 1 Удаление связи в таблице acronym-category-pivot
+  @Sendable func removeCategoriesHandler(_ req: Request)
+    -> EventLoopFuture<HTTPStatus> {
+    // 2
+    let acronymQuery =
+      Acronym.find(req.parameters.get("acronymID"), on: req.db)
+        .unwrap(or: Abort(.notFound))
+    let categoryQuery =
+      Category.find(req.parameters.get("categoryID"), on: req.db)
+        .unwrap(or: Abort(.notFound))
+    // 3
+    return acronymQuery.and(categoryQuery)
+      .flatMap { acronym, category in
+        // 4 Используйте detach(_:on:), чтобы удалить связь между аббревиатурой и категорией.
+        acronym
+          .$categories
+          .detach(category, on: req.db)
+          .transform(to: .noContent)
+      }
+  }
   
   
   
