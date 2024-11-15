@@ -31,11 +31,16 @@ struct AcronymsController: RouteCollection {
     
     acronymsRoutes.get(":acronymID", "user", use: getUserHandler)
     
-  acronymsRoutes.post(
+    acronymsRoutes.post(
       ":acronymID",
       "categories",
       ":categoryID",
       use: addCategoriesHandler)
+    
+     acronymsRoutes.get(
+      ":acronymID",
+      "categories",
+      use: getCategoriesHandler)
     
   }
   
@@ -131,28 +136,38 @@ struct AcronymsController: RouteCollection {
         acronym.$user.get(on: req.db)
       }
   }
- // 1 Получаем две модели по динамическим параметрам
+  // 1 Получаем две модели по динамическим параметрам
   @Sendable  func addCategoriesHandler(_ req: Request)
-    -> EventLoopFuture<HTTPStatus> {
+  -> EventLoopFuture<HTTPStatus> {
     // 2
     let acronymQuery =
-      Acronym.find(req.parameters.get("acronymID"), on: req.db)
-        .unwrap(or: Abort(.notFound))
+    Acronym.find(req.parameters.get("acronymID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
     let categoryQuery =
-      Category.find(req.parameters.get("categoryID"), on: req.db)
-        .unwrap(or: Abort(.notFound))
+    Category.find(req.parameters.get("categoryID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
     // 3 возвр две модели. Используем flatMap для дальнейшей обработки. Из первой получаем ссылку на братскую модель
     return acronymQuery.and(categoryQuery)
       .flatMap { acronym, category in
         acronym
           .$categories
-          // 4
+        // 4
           .attach(category, on: req.db)
           .transform(to: .created)
       }
   }
   
-  
+  // 1
+  @Sendable func getCategoriesHandler(_ req: Request)
+  -> EventLoopFuture<[Category]> {
+    // 2
+    Acronym.find(req.parameters.get("acronymID"), on: req.db)
+      .unwrap(or: Abort(.notFound))
+      .flatMap { acronym in
+        // 3
+        acronym.$categories.query(on: req.db).all()
+      }
+  }
   
   
   
