@@ -5,30 +5,42 @@ import Vapor
 
 // configures your application
 public func configure(_ app: Application) async throws {
-    // uncomment to serve files from /Public folder
-    // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
-
-  app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
-         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
-         username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-         password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-         database: Environment.get("DATABASE_NAME") ?? "vapor_database",
-         tls: .prefer(try .init(configuration: .clientDefault)))
-     ), as: .psql)
-
+  // uncomment to serve files from /Public folder
+  // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+  let databaseName: String
+  let databasePort: Int
+  // 1 В зависимости от среды устанавливаем имя базы данных и номер порта
+  if (app.environment == .testing) {
+    databaseName = "vapor-test"
+    databasePort = 5433
+  } else {
+    databaseName = "vapor_database"
+    databasePort = 5432
+  }
   
-   // 1 Добаляем ноаую модель к миграции
+  app.databases.use(.postgres(
+    hostname: Environment.get("DATABASE_HOST")
+    ?? "localhost",
+    port: databasePort,
+    username: Environment.get("DATABASE_USERNAME")
+    ?? "vapor_username",
+    password: Environment.get("DATABASE_PASSWORD")
+    ?? "vapor_password",
+    database: Environment.get("DATABASE_NAME")
+    ?? databaseName
+  ), as: .psql)
+  
+  // 1 Добаляем ноаую модель к миграции
   app.migrations.add(CreateUser())
   app.migrations.add(CreateAcronym())
   app.migrations.add(CreateCategory())
   app.migrations.add(CreateAcronymCategoryPivot())
   // 2
   app.logger.logLevel = .debug
-
+  
   // 3
   try await app.autoMigrate().get()
-    
-    // register routes
-    try routes(app)
+  
+  // register routes
+  try routes(app)
 }
