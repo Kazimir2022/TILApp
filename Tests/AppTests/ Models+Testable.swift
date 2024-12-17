@@ -42,3 +42,13 @@ extension Acronym {
   }
 }
  
+extension App.Category {
+  static func create(
+    name: String = "Random",
+    on database: Database
+  ) throws -> App.Category {
+    let category = Category(name: name)
+    try category.save(on: database).wait()
+    return category
+  }
+}
