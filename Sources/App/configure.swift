@@ -4,7 +4,7 @@ import FluentPostgresDriver
 import Vapor
 
 // configures your application
-public func configure(_ app: Application) async throws {
+public func configure(_ app: Application)  throws {
   // uncomment to serve files from /Public folder
   // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
   let databaseName: String
@@ -39,7 +39,7 @@ public func configure(_ app: Application) async throws {
   app.logger.logLevel = .debug
   
   // 3
-  try await app.autoMigrate().get()
+  try app.autoMigrate().wait()
   
   // register routes
   try routes(app)
