@@ -2,11 +2,13 @@ import NIOSSL
 import Fluent
 import FluentPostgresDriver
 import Vapor
+import Leaf
 
 // configures your application
 public func configure(_ app: Application)  throws {
   // uncomment to serve files from /Public folder
-  // app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+  app.middleware.use(FileMiddleware(publicDirectory: app.directory.publicDirectory))
+  app.middleware.use(app.sessions.middleware)
   let databaseName: String
   let databasePort: Int
   // 1 В зависимости от среды устанавливаем имя базы данных и номер порта
@@ -35,12 +37,12 @@ public func configure(_ app: Application)  throws {
   app.migrations.add(CreateAcronym())
   app.migrations.add(CreateCategory())
   app.migrations.add(CreateAcronymCategoryPivot())
-  // 2
+  app.migrations.add(CreateToken())
+  app.migrations.add(CreateAdminUser())
+  
   app.logger.logLevel = .debug
-  
-  // 3
   try app.autoMigrate().wait()
-  
+  app.views.use(.leaf)
   // register routes
   try routes(app)
 }

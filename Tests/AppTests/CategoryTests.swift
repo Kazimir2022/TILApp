@@ -36,13 +36,13 @@ final class CategoryTests: XCTestCase {
   func testCategoryCanBeSavedWithAPI() throws {
     let category = Category(name: categoryName)
     
-    try app.test(.POST, categoriesURI, beforeRequest: { request in
+    try app.test(.POST, categoriesURI, loggedInRequest: true, beforeRequest: { request in
       try request.content.encode(category)
     }, afterResponse: { response in
       let receivedCategory = try response.content.decode(Category.self)
       XCTAssertEqual(receivedCategory.name, categoryName)
       XCTAssertNotNil(receivedCategory.id)
-      
+
       try app.test(.GET, categoriesURI, afterResponse: { response in
         let categories = try response.content.decode([App.Category].self)
         XCTAssertEqual(categories.count, 1)
@@ -70,8 +70,8 @@ final class CategoryTests: XCTestCase {
 
     let category = try Category.create(name: categoryName, on: app.db)
     
-    try app.test(.POST, "/api/acronyms/\(acronym.id!)/categories/\(category.id!)")
-    try app.test(.POST, "/api/acronyms/\(acronym2.id!)/categories/\(category.id!)")
+    try app.test(.POST, "/api/acronyms/\(acronym.id!)/categories/\(category.id!)", loggedInRequest: true)
+    try app.test(.POST, "/api/acronyms/\(acronym2.id!)/categories/\(category.id!)", loggedInRequest: true)
 
     try app.test(.GET, "\(categoriesURI)\(category.id!)/acronyms", afterResponse: { response in
       let acronyms = try response.content.decode([Acronym].self)

@@ -11,15 +11,14 @@ import Fluent
 struct CreateUser: Migration {
   // 2
   func prepare(on database: Database) -> EventLoopFuture<Void> {
-    // 3
+     
     database.schema("users")
-      // 4
-      .id()
-      // 5
-      .field("name", .string, .required)
-      .field("username", .string, .required)
-      // 6
-      .create()
+    .id()
+    .field("name", .string, .required)
+    .field("username", .string, .required)
+    .field("password", .string, .required)
+    .unique(on: "username")
+    .create()
   }
   
   // 7

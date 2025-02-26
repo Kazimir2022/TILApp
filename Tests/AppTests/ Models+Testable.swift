@@ -7,14 +7,30 @@
 
 @testable import App
 import Fluent
+import Vapor
 
 extension User {
+  // 1
   static func create(
     name: String = "Luke",
-    username: String = "lukes",
+    username: String? = nil,
     on database: Database
   ) throws -> User {
-    let user = User(name: name, username: username)
+    let createUsername: String
+    // 2
+    if let suppliedUsername = username {
+      createUsername = suppliedUsername
+    // 3
+    } else {
+      createUsername = UUID().uuidString
+    }
+
+    // 4
+    let password = try Bcrypt.hash("password")
+    let user = User(
+      name: name,
+      username: createUsername,
+      password: password)
     try user.save(on: database).wait()
     return user
   }
@@ -28,11 +44,11 @@ extension Acronym {
     on database: Database
   ) throws -> Acronym {
     var acronymsUser = user
-
+    
     if acronymsUser == nil {
       acronymsUser = try User.create(on: database)
     }
-
+    
     let acronym = Acronym(
       short: short,
       long: long,
@@ -41,7 +57,7 @@ extension Acronym {
     return acronym
   }
 }
- 
+
 extension App.Category {
   static func create(
     name: String = "Random",
