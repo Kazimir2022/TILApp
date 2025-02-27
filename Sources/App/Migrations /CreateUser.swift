@@ -17,11 +17,11 @@ struct CreateUser: Migration {
     .field("name", .string, .required)
     .field("username", .string, .required)
     .field("password", .string, .required)
+    .field("siwaIdentifier", .string)
     .unique(on: "username")
     .create()
   }
   
-  // 7
   func revert(on database: Database) -> EventLoopFuture<Void> {
     database.schema("users").delete()
   }

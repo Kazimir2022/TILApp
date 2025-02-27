@@ -19,26 +19,36 @@ final class User: Model, Content {
   
   @Field(key: "username")
   var username: String
-
+  
   @Field(key: "password")
   var password: String
   
   @Children(for: \.$user)
   var acronyms: [Acronym]
   
+  @OptionalField(key: "siwaIdentifier")
+  var siwaIdentifier: String?
+  
   init() {}
   
-  init(id: UUID? = nil, name: String, username: String, password: String) {
+  init(
+    id: UUID? = nil,
+    name: String,
+    username: String,
+    password: String,
+    siwaIdentifier: String? = nil
+  ) {
     self.name = name
     self.username = username
     self.password = password
+    self.siwaIdentifier = siwaIdentifier
   }
-
+  
   final class Public: Content {
     var id: UUID?
     var name: String
     var username: String
-
+    
     init(id: UUID?, name: String, username: String) {
       self.id = id
       self.name = name
@@ -76,7 +86,7 @@ extension EventLoopFuture where Value == Array<User> {
 extension User: ModelAuthenticatable {
   static let usernameKey = \User.$username
   static let passwordHashKey = \User.$password
-
+  
   func verify(password: String) throws -> Bool {
     try Bcrypt.verify(password, created: self.password)
   }

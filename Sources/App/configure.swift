@@ -39,6 +39,8 @@ public func configure(_ app: Application)  throws {
   app.migrations.add(CreateAcronymCategoryPivot())
   app.migrations.add(CreateToken())
   app.migrations.add(CreateAdminUser())
+  // Это позволяет подключаться с любого IP-адреса.
+  app.http.server.configuration.hostname = "0.0.0.0"
   
   app.logger.logLevel = .debug
   try app.autoMigrate().wait()

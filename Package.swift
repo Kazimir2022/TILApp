@@ -1,5 +1,4 @@
 // swift-tools-version:6.0
-// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -19,8 +18,7 @@ let package = Package(
         // 🔵 Non-blocking, event-driven networking for Swift. Used for custom executors
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
         //
-        .package(url: "https://github.com/vapor-community/Imperial.git", from: "1.0.0"),
-        //
+        .package(url: "https://github.com/vapor-community/Imperial.git", from: "1.2.0"),
         .package(url: "https://github.com/vapor/jwt.git", from: "4.0.0"),
         .package(url: "https://github.com/vapor-community/sendgrid.git", from: "4.0.0")
     ],
