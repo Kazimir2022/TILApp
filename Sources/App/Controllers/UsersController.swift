@@ -17,7 +17,7 @@ struct UsersController: RouteCollection {
     usersRoute.get(use: getAllHandler)
     usersRoute.get(":userID", use: getHandler)
     usersRoute.get(":userID", "acronyms", use: getAcronymsHandler)
-    usersRoute.post("siwa", use: signInWithApple) 
+    usersRoute.post("siwa", use: signInWithApple)
     let basicAuthMiddleware = User.authenticator()
     let basicAuthGroup = usersRoute.grouped(basicAuthMiddleware)
     basicAuthGroup.post("login", use: loginHandler)
@@ -89,7 +89,8 @@ struct UsersController: RouteCollection {
                 name: name,
                 username: email,
                 password: UUID().uuidString,
-                siwaIdentifier: siwaToken.subject.value)
+                siwaIdentifier: siwaToken.subject.value,
+                email: email)
               userFuture = user.save(on: req.db).map { user }
             }
             // 6

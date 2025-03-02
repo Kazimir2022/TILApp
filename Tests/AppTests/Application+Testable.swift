@@ -34,7 +34,7 @@ extension XCTApplicationTester {
     let response = try performTest(request: request)
     return try response.content.decode(Token.self)
   }
-
+  
   @discardableResult
   public func test(
     _ method: HTTPMethod,
@@ -54,22 +54,26 @@ extension XCTApplicationTester {
       headers: headers,
       body: body ?? ByteBufferAllocator().buffer(capacity: 0)
     )
-
+    
     if (loggedInRequest || loggedInUser != nil) {
       let userToLogin: User
       // 2
       if let user = loggedInUser {
         userToLogin = user
       } else {
-        userToLogin = User(name: "Admin", username: "admin", password: "password")
+        userToLogin = User(
+          name: "Admin",
+          username: "admin",
+          password: "password",
+          email: "admin@localhost.local") 
       }
-
+      
       let token = try login(user: userToLogin)
       request.headers.bearerAuthorization = .init(token: token.value)
     }
-
+    
     try beforeRequest(&request)
-
+    
     do {
       let response = try performTest(request: request)
       try afterResponse(response)

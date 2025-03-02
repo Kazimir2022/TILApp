@@ -3,6 +3,7 @@ import Fluent
 import FluentPostgresDriver
 import Vapor
 import Leaf
+import SendGrid
 
 // configures your application
 public func configure(_ app: Application)  throws {
@@ -39,6 +40,7 @@ public func configure(_ app: Application)  throws {
   app.migrations.add(CreateAcronymCategoryPivot())
   app.migrations.add(CreateToken())
   app.migrations.add(CreateAdminUser())
+  app.migrations.add(CreateResetPasswordToken())
   // Это позволяет подключаться с любого IP-адреса.
   app.http.server.configuration.hostname = "0.0.0.0"
   
@@ -47,4 +49,5 @@ public func configure(_ app: Application)  throws {
   app.views.use(.leaf)
   // register routes
   try routes(app)
+  app.sendgrid.initialize()
 }

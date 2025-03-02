@@ -55,5 +55,8 @@
         usePopup : false
       });
     </script>
+
+    <br />
+    <a href="/forgottenPassword">Forgotten your password?</a>
   #endexport
 #endextend

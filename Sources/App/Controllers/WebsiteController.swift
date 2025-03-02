@@ -7,6 +7,7 @@
 
 import Vapor
 import Fluent
+import SendGrid
 
 struct WebsiteController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {
@@ -19,6 +20,10 @@ struct WebsiteController: RouteCollection {
     authSessionsRoutes.post("register", use: registerPostHandler)
     authSessionsRoutes.post("login", "siwa", "callback", use: appleAuthCallbackHandler)
     authSessionsRoutes.post("login", "siwa", "handle", use: appleAuthRedirectHandler)
+    authSessionsRoutes.get("forgottenPassword", use: forgottenPasswordHandler)
+    authSessionsRoutes.post("forgottenPassword", use: forgottenPasswordPostHandler)
+    authSessionsRoutes.get("resetPassword", use: resetPasswordHandler)
+    authSessionsRoutes.post("resetPassword", use: resetPasswordPostHandler)
     
     authSessionsRoutes.get(use: indexHandler)
     authSessionsRoutes.get("acronyms", ":acronymID", use: acronymHandler)
@@ -251,13 +256,14 @@ struct WebsiteController: RouteCollection {
     let user = User(
       name: data.name,
       username: data.username,
-      password: password)
+      password: password,
+      email: data.emailAddress)
     return user.save(on: req.db).map {
       req.auth.login(user)
       return req.redirect(to: "/")
     }
   }
-
+  
   @Sendable func appleAuthCallbackHandler(_ req: Request) throws -> EventLoopFuture<View> {
     let siwaData = try req.content.decode(AppleAuthorizationResponse.self)
     guard
@@ -271,7 +277,7 @@ struct WebsiteController: RouteCollection {
     let context = SIWAHandleContext(token: siwaData.idToken, email: siwaData.user?.email, firstName: siwaData.user?.name?.firstName, lastName: siwaData.user?.name?.lastName)
     return req.view.render("siwaHandler", context)
   }
-
+  
   @Sendable func appleAuthRedirectHandler(_ req: Request) throws -> EventLoopFuture<Response> {
     let data = try req.content.decode(SIWARedirectData.self)
     guard let appIdentifier = Environment.get("WEBSITE_APPLICATION_IDENTIFIER") else {
@@ -290,7 +296,12 @@ struct WebsiteController: RouteCollection {
           else {
             return req.eventLoop.future(error: Abort(.badRequest))
           }
-          let user = User(name: "\(firstName) \(lastName)", username: email, password: UUID().uuidString, siwaIdentifier: siwaToken.subject.value)
+          let user = User(
+            name: "\(firstName) \(lastName)",
+            username: email,
+            password: UUID().uuidString,
+            siwaIdentifier: siwaToken.subject.value,
+            email: email)
           userFuture = user.save(on: req.db).map { user }
         }
         return userFuture.map { user in
@@ -300,7 +311,7 @@ struct WebsiteController: RouteCollection {
       }
     }
   }
-
+  
   private func buildSIWAContext(on req: Request) throws -> SIWAContext {
     let state = [UInt8].random(count: 32).base64
     let scopes = "name email"
@@ -314,6 +325,89 @@ struct WebsiteController: RouteCollection {
     }
     let siwa = SIWAContext(clientID: clientID, scopes: scopes, redirectURI: redirectURI, state: state)
     return siwa
+  }
+  @Sendable func forgottenPasswordHandler(_ req: Request) -> EventLoopFuture<View> {
+    req.view.render("forgottenPassword", ["title": "Reset Your Password"])
+  }
+  
+  @Sendable func forgottenPasswordPostHandler(_ req: Request) throws -> EventLoopFuture<View> {
+    let email = try req.content.get(String.self, at: "email")
+    return User.query(on: req.db).filter(\.$email == email).first().flatMap { user in
+      guard let user = user else {
+        return req.view.render("forgottenPasswordConfirmed", ["title": "Password Reset Email Sent"])
+      }
+      let resetTokenString = Data([UInt8].random(count: 32)).base32EncodedString()
+      let resetToken: ResetPasswordToken
+      do {
+        resetToken = try ResetPasswordToken(token: resetTokenString, userID: user.requireID())
+      } catch {
+        return req.eventLoop.future(error: error)
+      }
+      return resetToken.save(on: req.db).flatMap {
+        let emailContent = """
+        <p>You've requested to reset your password. <a
+        href="http://localhost:8080/resetPassword?\
+        token=\(resetTokenString)">
+        Click here</a> to reset your password.</p>
+        """
+        let emailAddress = EmailAddress(email: user.email, name: user.name)
+        let fromEmail = EmailAddress(email: "0xtimc@gmail.com", name: "Vapor TIL")
+        let emailConfig = Personalization(to: [emailAddress], subject: "Reset Your Password")
+        let email = SendGridEmail(
+          personalizations: [emailConfig],
+          from: fromEmail,
+          content: [["type": "text/html", "value": emailContent]])
+        let emailSend: EventLoopFuture<Void>
+        do {
+          emailSend = try req.application.sendgrid.client.send(email: email, on: req.eventLoop)
+        } catch {
+          return req.eventLoop.future(error: error)
+        }
+        return emailSend.flatMap {
+          req.view.render("forgottenPasswordConfirmed", ["title": "Password Reset Email Sent"])
+        }
+      }
+    }
+  }
+  
+  @Sendable func resetPasswordHandler(_ req: Request) -> EventLoopFuture<View> {
+    guard let token = try? req.query.get(String.self, at: "token") else {
+      return req.view.render(
+        "resetPassword",
+        ResetPasswordContext(error: true)
+      )
+    }
+    return ResetPasswordToken.query(on: req.db).filter(\.$token == token).first()
+      .unwrap(or: Abort.redirect(to: "/"))
+      .flatMap { token in
+        token.$user.get(on: req.db).flatMap { user in
+          do {
+            try req.session.set("ResetPasswordUser", to: user)
+          } catch {
+            return req.eventLoop.future(error: error)
+          }
+          return token.delete(on: req.db)
+        }
+      }.flatMap {
+        req.view.render("resetPassword", ResetPasswordContext()
+        )
+      }
+  }
+  
+  @Sendable func resetPasswordPostHandler(_ req: Request) throws -> EventLoopFuture<Response> {
+    let data = try req.content.decode(ResetPasswordData.self)
+    guard data.password == data.confirmPassword else {
+      return req.view.render("resetPassword", ResetPasswordContext(error: true))
+        .encodeResponse(for: req)
+    }
+    let resetPasswordUser = try req.session.get("ResetPasswordUser", as: User.self)
+    req.session.data["ResetPasswordUser"] = nil
+    let newPassword = try Bcrypt.hash(data.password)
+    return try User.query(on: req.db)
+      .filter(\.$id == resetPasswordUser.requireID())
+      .set(\.$password, to: newPassword)
+      .update()
+      .transform(to: req.redirect(to: "/login"))
   }
 }
 
@@ -387,7 +481,7 @@ struct RegisterContext: Encodable {
   let title = "Register"
   let message: String?
   let siwaContext: SIWAContext
-
+  
   init(message: String? = nil, siwaContext: SIWAContext) {
     self.message = message
     self.siwaContext = siwaContext
@@ -399,6 +493,7 @@ struct RegisterData: Content {
   let username: String
   let password: String
   let confirmPassword: String
+  let emailAddress: String
 }
 
 extension RegisterData: Validatable {
@@ -407,6 +502,7 @@ extension RegisterData: Validatable {
     validations.add("username", as: String.self, is: .alphanumeric && .count(3...))
     validations.add("password", as: String.self, is: .count(8...))
     validations.add("zipCode", as: String.self, is: .zipCode, required: false)
+    validations.add("emailAddress", as: String.self, is: .email)
   }
 }
 
@@ -420,11 +516,11 @@ extension ValidatorResults.ZipCode: ValidatorResult {
   var isFailure: Bool {
     !isValidZipCode
   }
-
+  
   var successDescription: String? {
     "is a valid zip code"
   }
-
+  
   var failureDescription: String? {
     "is not a valid zip code"
   }
@@ -434,7 +530,7 @@ extension Validator where T == String {
   private static var zipCodeRegex: String {
     "^\\d{5}(?:[-\\s]\\d{4})?$"
   }
-
+  
   public static var zipCode: Validator<T> {
     Validator { input -> ValidatorResult in
       guard
@@ -457,25 +553,25 @@ struct AppleAuthorizationResponse: Decodable {
     let email: String
     let name: Name?
   }
-
+  
   let code: String
   let state: String
   let idToken: String
   let user: User?
-
+  
   enum CodingKeys: String, CodingKey {
     case code
     case state
     case idToken = "id_token"
     case user
   }
-
+  
   init(from decoder: Decoder) throws {
     let values = try decoder.container(keyedBy: CodingKeys.self)
     code = try values.decode(String.self, forKey: .code)
     state = try values.decode(String.self, forKey: .state)
     idToken = try values.decode(String.self, forKey: .idToken)
-
+    
     if let jsonString = try values.decodeIfPresent(String.self, forKey: .user),
        let jsonData = jsonString.data(using: .utf8) {
       user = try JSONDecoder().decode(User.self, from: jsonData)
@@ -505,3 +601,18 @@ struct SIWAContext: Encodable {
   let redirectURI: String
   let state: String
 }
+
+struct ResetPasswordContext: Encodable {
+  let title = "Reset Password"
+  let error: Bool?
+  
+  init(error: Bool? = false) {
+    self.error = error
+  }
+}
+
+struct ResetPasswordData: Content {
+  let password: String
+  let confirmPassword: String
+}
+

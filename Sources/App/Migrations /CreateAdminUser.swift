@@ -16,10 +16,14 @@ struct CreateAdminUser: Migration {
     } catch {
       return database.eventLoop.future(error: error)
     }
-    let user = User(name: "Admin", username: "admin", password: passwordHash)
+    let user = User(
+      name: "Admin",
+      username: "admin",
+      password: passwordHash,
+      email: "admin@localhost.local")
     return user.save(on: database)
   }
-
+  
   func revert(on database: Database) -> EventLoopFuture<Void> {
     User.query(on: database).filter(\.$username == "admin").delete()
   }

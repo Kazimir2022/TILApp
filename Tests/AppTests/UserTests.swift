@@ -25,7 +25,7 @@ final class UserTests: XCTestCase {
   func testUsersCanBeRetrievedFromAPI() throws {
     let user = try User.create(name: usersName, username: usersUsername, on: app.db)
     _ = try User.create(on: app.db)
-
+    
     try app.test(.GET, usersURI, afterResponse: { response in
       
       XCTAssertEqual(response.status, .ok)
@@ -39,8 +39,12 @@ final class UserTests: XCTestCase {
   }
   
   func testUserCanBeSavedWithAPI() throws {
-    let user = User(name: usersName, username: usersUsername, password: "password")
-
+    let user = User(
+      name: usersName,
+      username: usersUsername,
+      password: "password",
+      email: "\(usersUsername)@test.com") 
+    
     try app.test(.POST, usersURI, loggedInRequest: true, beforeRequest: { req in
       try req.content.encode(user)
     }, afterResponse: { response in
@@ -48,7 +52,7 @@ final class UserTests: XCTestCase {
       XCTAssertEqual(receivedUser.name, usersName)
       XCTAssertEqual(receivedUser.username, usersUsername)
       XCTAssertNotNil(receivedUser.id)
-
+      
       try app.test(.GET, usersURI, afterResponse: { secondResponse in
         let users = try secondResponse.content.decode([User.Public].self)
         XCTAssertEqual(users.count, 2)
@@ -72,13 +76,13 @@ final class UserTests: XCTestCase {
   
   func testGettingAUsersAcronymsFromTheAPI() throws {
     let user = try User.create(on: app.db)
-
+    
     let acronymShort = "OMG"
     let acronymLong = "Oh My God"
     
     let acronym1 = try Acronym.create(short: acronymShort, long: acronymLong, user: user, on: app.db)
     _ = try Acronym.create(short: "LOL", long: "Laugh Out Loud", user: user, on: app.db)
-
+    
     try app.test(.GET, "\(usersURI)\(user.id!)/acronyms", afterResponse: { response in
       let acronyms = try response.content.decode([Acronym].self)
       XCTAssertEqual(acronyms.count, 2)

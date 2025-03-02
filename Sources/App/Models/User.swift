@@ -29,6 +29,9 @@ final class User: Model, Content {
   @OptionalField(key: "siwaIdentifier")
   var siwaIdentifier: String?
   
+  @Field(key: "email")
+  var email: String
+  
   init() {}
   
   init(
@@ -36,12 +39,14 @@ final class User: Model, Content {
     name: String,
     username: String,
     password: String,
-    siwaIdentifier: String? = nil
+    siwaIdentifier: String? = nil,
+    email: String
   ) {
     self.name = name
     self.username = username
     self.password = password
     self.siwaIdentifier = siwaIdentifier
+    self.email = email
   }
   
   final class Public: Content {

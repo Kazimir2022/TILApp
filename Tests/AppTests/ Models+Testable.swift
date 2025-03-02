@@ -20,17 +20,18 @@ extension User {
     // 2
     if let suppliedUsername = username {
       createUsername = suppliedUsername
-    // 3
+      // 3
     } else {
       createUsername = UUID().uuidString
     }
-
+    
     // 4
     let password = try Bcrypt.hash("password")
     let user = User(
       name: name,
       username: createUsername,
-      password: password)
+      password: password,
+      email: "\(createUsername)@test.com")
     try user.save(on: database).wait()
     return user
   }
