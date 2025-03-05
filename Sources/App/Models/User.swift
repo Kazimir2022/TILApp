@@ -32,21 +32,25 @@ final class User: Model, Content {
   @Field(key: "email")
   var email: String
   
+  @OptionalField(key: "profilePicture")
+  var profilePicture: String?
+  
   init() {}
   
   init(
-    id: UUID? = nil,
     name: String,
     username: String,
     password: String,
     siwaIdentifier: String? = nil,
-    email: String
+    email: String,
+    profilePicture: String? = nil
   ) {
     self.name = name
     self.username = username
     self.password = password
     self.siwaIdentifier = siwaIdentifier
     self.email = email
+    self.profilePicture = profilePicture
   }
   
   final class Public: Content {

@@ -10,6 +10,7 @@ import Fluent
 import SendGrid
 
 struct WebsiteController: RouteCollection {
+  let imageFolder = "ProfilePictures/"
   func boot(routes: RoutesBuilder) throws {
     let authSessionsRoutes = routes.grouped(User.sessionAuthenticator())
     authSessionsRoutes.get("login", use: loginHandler)
@@ -38,6 +39,23 @@ struct WebsiteController: RouteCollection {
     protectedRoutes.get("acronyms", ":acronymID", "edit", use: editAcronymHandler)
     protectedRoutes.post("acronyms", ":acronymID", "edit", use: editAcronymPostHandler)
     protectedRoutes.post("acronyms", ":acronymID", "delete", use: deleteAcronymHandler)
+    protectedRoutes.get(
+      "users",
+      ":userID",
+      "addProfilePicture",
+      use: addProfilePictureHandler)
+    protectedRoutes.on(
+      .POST,
+      "users",
+      ":userID",
+      "addProfilePicture",
+      body: .collect(maxSize: "10mb"),
+      use: addProfilePicturePostHandler)
+    authSessionsRoutes.get(
+      "users",
+      ":userID",
+      "profilePicture",
+      use: getUsersProfilePictureHandler) 
   }
   
   @Sendable func indexHandler(_ req: Request) -> EventLoopFuture<View> {
@@ -67,7 +85,8 @@ struct WebsiteController: RouteCollection {
   @Sendable func userHandler(_ req: Request) -> EventLoopFuture<View> {
     User.find(req.parameters.get("userID"), on: req.db).unwrap(or: Abort(.notFound)).flatMap { user in
       user.$acronyms.get(on: req.db).flatMap { acronyms in
-        let context = UserContext(title: user.name, user: user, acronyms: acronyms)
+        let loggedInUser = req.auth.get(User.self)
+        let context = UserContext(title: user.name, user: user, acronyms: acronyms, authenticatedUser: loggedInUser)
         return req.view.render("user", context)
       }
     }
@@ -409,6 +428,48 @@ struct WebsiteController: RouteCollection {
       .update()
       .transform(to: req.redirect(to: "/login"))
   }
+  @Sendable func addProfilePictureHandler(_ req: Request)
+  -> EventLoopFuture<View> {
+    User.find(req.parameters.get("userID"), on: req.db)
+      .unwrap(or: Abort(.notFound)).flatMap { user in
+        req.view.render(
+          "addProfilePicture",
+          [
+            "title": "Add Profile Picture",
+            "username": user.name
+          ]
+        )
+      }
+  }
+  
+  @Sendable func addProfilePicturePostHandler(_ req: Request) throws -> EventLoopFuture<Response> {
+    let data = try req.content.decode(ImageUploadData.self)
+    return User.find(req.parameters.get("userID"), on: req.db).unwrap(or: Abort(.notFound)).flatMap { user in
+      let userID: UUID
+      do {
+        userID = try user.requireID()
+      } catch {
+        return req.eventLoop.future(error: error)
+      }
+      let name = "\(userID)-\(UUID()).jpg"
+      let path = req.application.directory.workingDirectory + imageFolder + name
+      user.profilePicture = name
+      return req.fileio.writeFile(.init(data: data.picture), at: path).flatMap {
+        let redirect = req.redirect(to: "/users/\(userID)")
+        return user.save(on: req.db).transform(to: redirect)
+      }
+    }
+  }
+  
+  @Sendable func getUsersProfilePictureHandler(_ req: Request) -> EventLoopFuture<Response> {
+    User.find(req.parameters.get("userID"), on: req.db).unwrap(or: Abort(.notFound)).flatMapThrowing { user in
+      guard let filename = user.profilePicture else {
+        throw Abort(.notFound)
+      }
+      let path = req.application.directory.workingDirectory + imageFolder + filename
+      return req.fileio.streamFile(at: path)
+    }
+  }
 }
 
 struct IndexContext: Encodable {
@@ -429,6 +490,7 @@ struct UserContext: Encodable {
   let title: String
   let user: User
   let acronyms: [Acronym]
+  let authenticatedUser: User?
 }
 
 struct AllUsersContext: Encodable {
@@ -616,3 +678,6 @@ struct ResetPasswordData: Content {
   let confirmPassword: String
 }
 
+struct ImageUploadData: Content {
+  var picture: Data
+}
