@@ -7,26 +7,25 @@
 
 import Fluent
 
-// 1
 struct CreateAcronymCategoryPivot: Migration {
-  // 2
   func prepare(on database: Database) -> EventLoopFuture<Void> {
-    // 3
-    database.schema("acronym-category-pivot")
-      // 4
+    database.schema(AcronymCategoryPivot.v20210113.schemaName)
       .id()
-      // 5 Без ограничения можно удалить acronum и category
-        //каскадное ограничение - база сама удаляет связь 
-      .field("acronymID", .uuid, .required,
-        .references("acronyms", "id", onDelete: .cascade))
-      .field("categoryID", .uuid, .required,
-        .references("categories", "id", onDelete: .cascade))
-      // 6
+      .field(AcronymCategoryPivot.v20210113.acronymID, .uuid, .required, .references(Acronym.v20210114.schemaName, Acronym.v20210114.id, onDelete: .cascade))
+      .field(AcronymCategoryPivot.v20210113.categoryID, .uuid, .required, .references(Category.v20210113.schemaName, Category.v20210113.id, onDelete: .cascade))
       .create()
   }
   
-  // 7
   func revert(on database: Database) -> EventLoopFuture<Void> {
-    database.schema("acronym-category-pivot").delete()
+    database.schema(AcronymCategoryPivot.v20210113.schemaName).delete()
+  }
+}
+
+extension AcronymCategoryPivot {
+  enum v20210113 {
+    static let schemaName = "acronym-category-pivot"
+    static let id = FieldKey(stringLiteral: "id")
+    static let acronymID = FieldKey(stringLiteral: "acronymID")
+    static let categoryID = FieldKey(stringLiteral: "categoryID")
   }
 }

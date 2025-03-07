@@ -10,107 +10,67 @@ import Fluent
 
 struct AcronymsController: RouteCollection {
   func boot(routes: RoutesBuilder) throws {//регистрация маршрутов
-    let acronymsRoutes = routes.grouped("api", "acronyms")// создание группы маршрутов для api/acronyms
-    
-    //routes.get("api", "acronyms", use: getAllHandler)
+    let acronymsRoutes = routes.grouped("api", "acronyms")
     acronymsRoutes.get(use: getAllHandler)
-    // 1 Сохранение в БД
-    acronymsRoutes.post(use: createHandler)
-    // 2
     acronymsRoutes.get(":acronymID", use: getHandler)
-    // 3
-    acronymsRoutes.put(":acronymID", use: updateHandler)
-    // 4
-    acronymsRoutes.delete(":acronymID", use: deleteHandler)
-    // 5
     acronymsRoutes.get("search", use: searchHandler)
-    // 6
     acronymsRoutes.get("first", use: getFirstHandler)
-    // 7
     acronymsRoutes.get("sorted", use: sortedHandler)
-    
     acronymsRoutes.get(":acronymID", "user", use: getUserHandler)
-    
-    acronymsRoutes.post(
-      ":acronymID",
-      "categories",
-      ":categoryID",
-      use: addCategoriesHandler)
-    
-     acronymsRoutes.get(
-      ":acronymID",
-      "categories",
-      use: getCategoriesHandler)
-    
-     acronymsRoutes.delete(
-      ":acronymID",
-      "categories",
-      ":categoryID",
-      use: removeCategoriesHandler)
-    
+    acronymsRoutes.get(":acronymID", "categories", use: getCategoriesHandler)
+
+    let tokenAuthMiddleware = Token.authenticator()
+    let guardAuthMiddleware = User.guardMiddleware()
+    let tokenAuthGroup = acronymsRoutes.grouped(tokenAuthMiddleware, guardAuthMiddleware)
+    tokenAuthGroup.post(use: createHandler)
+    tokenAuthGroup.delete(":acronymID", use: deleteHandler)
+    tokenAuthGroup.put(":acronymID", use: updateHandler)
+    tokenAuthGroup.post(":acronymID", "categories", ":categoryID", use: addCategoriesHandler)
+    tokenAuthGroup.delete(":acronymID", "categories", ":categoryID", use: removeCategoriesHandler)
   }
-  
-  
-  
-  
-  @Sendable func getAllHandler(_ req: Request)
-  -> EventLoopFuture<[Acronym]> {
+
+  @Sendable func getAllHandler(_ req: Request) -> EventLoopFuture<[Acronym]> {
     Acronym.query(on: req.db).all()
   }
-  //Сохранение в БД
-  @Sendable func createHandler(_ req: Request) throws
-  -> EventLoopFuture<Acronym> {
-    // 1 извлекаем из запроса модель нового типа - CreateAcronymData.self
-    let data = try req.content.decode(CreateAcronymData.self)//извлекаем из запроса модель
-    // 2 Создаем объект сохраняем его в заранее подготовленной для этого БД
-    let acronym = Acronym(
-      short: data.short,
-      long: data.long,
-      userID: data.userID)
+
+  @Sendable func createHandler(_ req: Request) throws -> EventLoopFuture<Acronym> {
+    let data = try req.content.decode(CreateAcronymData.self)
+    let user = try req.auth.require(User.self)
+    let acronym = try Acronym(short: data.short, long: data.long, userID: user.requireID())
     return acronym.save(on: req.db).map { acronym }
-    
-    /*
-     
-     let acronym = try req.content.decode(Acronym.self)
-     return acronym.save(on: req.db).map { acronym }
-     */
   }
-  
-  @Sendable func getHandler(_ req: Request)
-  -> EventLoopFuture<Acronym> {
+
+  @Sendable  func getHandler(_ req: Request) -> EventLoopFuture<Acronym> {
     Acronym.find(req.parameters.get("acronymID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
+    .unwrap(or: Abort(.notFound))
   }
-  
-  @Sendable func updateHandler(_ req: Request) throws
-  -> EventLoopFuture<Acronym> {
-    let updateData =
-    try req.content.decode(CreateAcronymData.self)
-    return Acronym
-      .find(req.parameters.get("acronymID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
-      .flatMap { acronym in
+
+  @Sendable func updateHandler(_ req: Request) throws -> EventLoopFuture<Acronym> {
+    let updateData = try req.content.decode(CreateAcronymData.self)
+    let user = try req.auth.require(User.self)
+    let userID = try user.requireID()
+    return Acronym.find(req.parameters.get("acronymID"), on: req.db)
+      .unwrap(or: Abort(.notFound)).flatMap { acronym in
         acronym.short = updateData.short
         acronym.long = updateData.long
-        acronym.$user.id = updateData.userID
+        acronym.$user.id = userID
         return acronym.save(on: req.db).map {
           acronym
         }
-      }
+    }
   }
-  
+
   @Sendable func deleteHandler(_ req: Request)
-  -> EventLoopFuture<HTTPStatus> {
+    -> EventLoopFuture<HTTPStatus> {
     Acronym.find(req.parameters.get("acronymID"), on: req.db)
       .unwrap(or: Abort(.notFound))
       .flatMap { acronym in
         acronym.delete(on: req.db)
           .transform(to: .noContent)
-      }
+    }
   }
-  
-  @Sendable func searchHandler(_ req: Request) throws
-  -> EventLoopFuture<[Acronym]> {
+
+  @Sendable func searchHandler(_ req: Request) throws -> EventLoopFuture<[Acronym]> {
     guard let searchTerm = req
       .query[String.self, at: "term"] else {
       throw Abort(.badRequest)
@@ -120,90 +80,51 @@ struct AcronymsController: RouteCollection {
       or.filter(\.$long == searchTerm)
     }.all()
   }
-  
-  @Sendable func getFirstHandler(_ req: Request)
-  -> EventLoopFuture<Acronym> {
+
+  @Sendable func getFirstHandler(_ req: Request) -> EventLoopFuture<Acronym> {
     return Acronym.query(on: req.db)
       .first()
       .unwrap(or: Abort(.notFound))
   }
-  @Sendable  func sortedHandler(_ req: Request)
-  -> EventLoopFuture<[Acronym]> {
-    return Acronym.query(on: req.db)
-      .sort(\.$short, .ascending).all()
+
+  @Sendable func sortedHandler(_ req: Request) -> EventLoopFuture<[Acronym]> {
+    return Acronym.query(on: req.db).sort(\.$short, .ascending).all()
   }
-  // 1 Через модель Acronym получаем связанную запись User(получаем родителя)
-  @Sendable  func getUserHandler(_ req: Request)
-  -> EventLoopFuture<User> {
-    //Возвращаем модель User а не Acronym
-    // 2
+
+  @Sendable  func getUserHandler(_ req: Request) -> EventLoopFuture<User.Public> {
     Acronym.find(req.parameters.get("acronymID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
-      .flatMap { acronym in
-        // 3  получаем
-        acronym.$user.get(on: req.db)
-      }
+    .unwrap(or: Abort(.notFound))
+    .flatMap { acronym in
+      acronym.$user.get(on: req.db).convertToPublic()
+    }
   }
-  // 1 Получаем две модели по динамическим параметрам
-  @Sendable  func addCategoriesHandler(_ req: Request)
-  -> EventLoopFuture<HTTPStatus> {
-    // 2
-    let acronymQuery =
+
+  @Sendable func addCategoriesHandler(_ req: Request) -> EventLoopFuture<HTTPStatus> {
+    let acronymQuery = Acronym.find(req.parameters.get("acronymID"), on: req.db).unwrap(or: Abort(.notFound))
+    let categoryQuery = Category.find(req.parameters.get("categoryID"), on: req.db).unwrap(or: Abort(.notFound))
+    return acronymQuery.and(categoryQuery).flatMap { acronym, category in
+      acronym.$categories.attach(category, on: req.db).transform(to: .created)
+    }
+  }
+
+  @Sendable  func getCategoriesHandler(_ req: Request) -> EventLoopFuture<[Category]> {
     Acronym.find(req.parameters.get("acronymID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
-    let categoryQuery =
-    Category.find(req.parameters.get("categoryID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
-    // 3 возвр две модели. Используем flatMap для дальнейшей обработки. Из первой получаем ссылку на братскую модель
-    return acronymQuery.and(categoryQuery)
-      .flatMap { acronym, category in
-        acronym
-          .$categories
-        // 4
-          .attach(category, on: req.db)
-          .transform(to: .created)
-      }
+    .unwrap(or: Abort(.notFound))
+    .flatMap { acronym in
+      acronym.$categories.query(on: req.db).all()
+    }
   }
-  
-  // 1
-  @Sendable func getCategoriesHandler(_ req: Request)
-  -> EventLoopFuture<[Category]> {
-    // 2
-    Acronym.find(req.parameters.get("acronymID"), on: req.db)
-      .unwrap(or: Abort(.notFound))
-      .flatMap { acronym in
-        // 3 используйте запрос Fluent, чтобы вернуть все категории.
-        acronym.$categories.query(on: req.db).all()
-      }
+
+  @Sendable func removeCategoriesHandler(_ req: Request) -> EventLoopFuture<HTTPStatus> {
+    let acronymQuery = Acronym.find(req.parameters.get("acronymID"), on: req.db).unwrap(or: Abort(.notFound))
+    let categoryQuery = Category.find(req.parameters.get("categoryID"), on: req.db).unwrap(or: Abort(.notFound))
+    return acronymQuery.and(categoryQuery).flatMap { acronym, category in
+      acronym.$categories.detach(category, on: req.db).transform(to: .noContent)
+    }
   }
-  
-  // 1 Удаление связи в таблице acronym-category-pivot
-  @Sendable func removeCategoriesHandler(_ req: Request)
-    -> EventLoopFuture<HTTPStatus> {
-    // 2
-    let acronymQuery =
-      Acronym.find(req.parameters.get("acronymID"), on: req.db)
-        .unwrap(or: Abort(.notFound))
-    let categoryQuery =
-      Category.find(req.parameters.get("categoryID"), on: req.db)
-        .unwrap(or: Abort(.notFound))
-    // 3
-    return acronymQuery.and(categoryQuery)
-      .flatMap { acronym, category in
-        // 4 Используйте detach(_:on:), чтобы удалить связь между аббревиатурой и категорией.
-        acronym
-          .$categories
-          .detach(category, on: req.db)
-          .transform(to: .noContent)
-      }
-  }
-  
-  
-  
 }
 
 struct CreateAcronymData: Content {
   let short: String
   let long: String
-  let userID: UUID
 }

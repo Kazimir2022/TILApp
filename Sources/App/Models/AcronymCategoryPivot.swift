@@ -7,34 +7,24 @@
 
 import Fluent
 import Foundation
-//Vapor не импортируем для опоры зато импортируем Foundation для uuid
-// 1
+
 final class AcronymCategoryPivot: Model {
-  static let schema = "acronym-category-pivot"
+  static let schema = AcronymCategoryPivot.v20210113.schemaName
   
-  // 2
   @ID
   var id: UUID?
   
-  // 3 ссылка на каждого родителя
-  @Parent(key: "acronymID")
-  var acronym: Acronym  // одна аббревиатура
+  @Parent(key: AcronymCategoryPivot.v20210113.acronymID)
+  var acronym: Acronym
   
-  @Parent(key: "categoryID")
-  var category: Category // одна аббревиатура
+  @Parent(key: AcronymCategoryPivot.v20210113.categoryID)
+  var category: Category
   
-  // 4
   init() {}
   
-  // 5
-  init(
-    id: UUID? = nil,
-    acronym: Acronym,
-    category: Category
-  ) throws {
+  init(id: UUID? = nil, acronym: Acronym, category: Category) throws {
     self.id = id
-    self.$acronym.id = try acronym.requireID()// requireID()-проверка того что модели имеют ID
+    self.$acronym.id = try acronym.requireID()
     self.$category.id = try category.requireID()
   }
 }
- 
